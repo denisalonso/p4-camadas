@@ -9,7 +9,7 @@ class Client():
     def __init__(self):
         self.COM = 'COM15' # insira sua porta COM aqui
 
-
+# oi
 def main():
     client = Client()
     p = Pacote()
