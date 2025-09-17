@@ -3,6 +3,7 @@ import time as t
 import numpy as np
 from enlace import *
 from pacote import Pacote
+from mensagem import escreve
 
 class Server():
     def __init__(self):
