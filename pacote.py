@@ -4,7 +4,6 @@ from enlace import *
 import crc16
 
 
-
 class Pacote(object):
     def __init__(self):
         # protocolo
@@ -25,7 +24,7 @@ class Pacote(object):
     def checksum16(self, payload):  #retorna um numero inteiro representavel em 32 bits (max: 2^32 - 1)
         return crc16.crc16xmodem(payload) & 0xFFFF
     
-    def cria_header(self, tipo, file_id, seq, total, plen, csum, crc): # header de 12 bytes
+    def cria_header(self, tipo, file_id, seq, total, plen, crc): # header de 12 bytes
         return struct.pack(">BBHHHH",           # formato de dados > = MSB da esquerda pra direita 
                            tipo & 0xFF,         # B -> char 1 byte
                            file_id & 0xFF,      # B -> char 1 byte
@@ -36,31 +35,15 @@ class Pacote(object):
                            )
 
     def int_header(self, head): # interpreta o header
-        tipo, fid, seq, total, plen, csum, crc = struct.unpack('>BBHHHIH',head)
-        return tipo, fid, seq, total, plen, csum, crc
+        tipo, fid, seq, total, plen, crc = struct.unpack('>BBHHHH',head)
+        return tipo, fid, seq, total, plen, crc
 
     def cria_pacote(self, tipo, file_id=0, seq=0, total=0, payload=b''):
         plen = len(payload)
         if plen > self.MAX_PAY:
             raise ValueError('payload maior que MAX_PAY')
-        head = self.cria_header(tipo,file_id,seq,total,plen,self.checksum32(payload))
+        head = self.cria_header(tipo,file_id,seq,total,plen,self.checksum16(payload))
         return head + payload + self.EOP
-
-    def recebe_n_bytes(self, com, n, timeout=5.0): # tem 5 segundos pra receber n bytes sanao da timeout
-        t0 = t.time()
-        buf = b''
-        while (len(buf) < n) and ((t.time()-t0) < timeout):
-            falta = n - len(buf)
-            pedaco, _ = com.getData(falta)
-            buf += pedaco
-        if len(buf) < n:
-            raise TimeoutError(f'esperava {n} bytes, recebi {len(buf)}')
-        return buf
-        tipo, fid, seq, total, plen, csum, crc = self.int_header(hdr)
-        if self.checksum32(payload) != csum:
-            raise ValueError("checksum inválido")
-        if self.calcula_crc16(payload) != crc:
-            raise ValueError("CRC16 inválido")
     
     def recebe_pacote(self, com, timeout=5.0):
         t0 = t.time()
@@ -81,10 +64,10 @@ class Pacote(object):
                         raise ValueError('pacote sem header')
                     hdr = pac[:self.HDR_LEN]
                     payload = pac[self.HDR_LEN:]
-                    tipo, fid, seq, total, plen, csum = self.int_header(hdr)
+                    tipo, fid, seq, total, plen, crc = self.int_header(hdr)
                     if plen != len(payload):
                         raise ValueError('plen inconsistente')
-                    if self.checksum32(payload) != csum:
+                    if self.checksum16(payload) != crc:
                         raise ValueError('checksum invalido')
                     return tipo, fid, seq, total, payload
             t.sleep(0.1)
