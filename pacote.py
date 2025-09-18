@@ -1,12 +1,15 @@
 import struct
 import time as t
 from enlace import *
+import crc16
+
+
 
 class Pacote(object):
     def __init__(self):
         # protocolo
         self.EOP = b'\xAA\xBB\xCC\xDD'  # 4 bytes - 10101010 10111011 11001100 11011101
-        self.HDR_LEN = 12               # tamanho do head - 12 bytes
+        self.HDR_LEN = 10               # tamanho do head - 12 bytes
         self.MAX_PAY = 100              # payload maximo por pacote
         
         # tipos de msg
@@ -19,22 +22,22 @@ class Pacote(object):
         self.T_END   = 7
         self.T_ABORT = 8
     
-    def checksum32(self, b):  #retorna um numero inteiro representavel em 32 bits (max: 2^32 - 1)
-        return sum(b) & 0xFFFFFFFF
+    def checksum16(self, payload):  #retorna um numero inteiro representavel em 32 bits (max: 2^32 - 1)
+        return crc16.crc16xmodem(payload) & 0xFFFF
     
-    def cria_header(self, tipo, file_id, seq, total, plen, csum): # header de 12 bytes
-        return struct.pack(">BBHHHI",           # formato de dados > = MSB da esquerda pra direita 
+    def cria_header(self, tipo, file_id, seq, total, plen, csum, crc): # header de 12 bytes
+        return struct.pack(">BBHHHH",           # formato de dados > = MSB da esquerda pra direita 
                            tipo & 0xFF,         # B -> char 1 byte
                            file_id & 0xFF,      # B -> char 1 byte
                            seq & 0xFFFF,        # H -> short 2 bytes
                            total & 0xFFFF,      # H -> short 2 bytes
                            plen & 0xFFFF,       # H -> short 2 bytes
-                           csum & 0xFFFFFFFF    # I -> int 4 bytes -- 32 bits
+                           crc & 0xFFFF         # H -> short 2 bytes
                            )
 
     def int_header(self, head): # interpreta o header
-        tipo, fid, seq, total, plen, csum = struct.unpack('>BBHHHI',head)
-        return tipo, fid, seq, total, plen, csum
+        tipo, fid, seq, total, plen, csum, crc = struct.unpack('>BBHHHIH',head)
+        return tipo, fid, seq, total, plen, csum, crc
 
     def cria_pacote(self, tipo, file_id=0, seq=0, total=0, payload=b''):
         plen = len(payload)
@@ -53,6 +56,11 @@ class Pacote(object):
         if len(buf) < n:
             raise TimeoutError(f'esperava {n} bytes, recebi {len(buf)}')
         return buf
+        tipo, fid, seq, total, plen, csum, crc = self.int_header(hdr)
+        if self.checksum32(payload) != csum:
+            raise ValueError("checksum inválido")
+        if self.calcula_crc16(payload) != crc:
+            raise ValueError("CRC16 inválido")
     
     def recebe_pacote(self, com, timeout=5.0):
         t0 = t.time()
