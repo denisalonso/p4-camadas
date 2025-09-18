@@ -20,8 +20,11 @@ class Pacote(object):
         self.T_ABORT = 8
         self.T_ERRCRC = 9   # novo tipo de mensagem para CRC errado
 
-    def calcula_crc16(self, payload):
-        return crcmod.crc16xmodem(payload) & 0xFFFF
+    def checksum16(self, payload: bytes) -> int:
+        """Calcula CRC16-XMODEM (2 bytes) do payload"""
+        crc16 = crcmod.predefined.Crc('xmodem')
+        crc16.update(payload)
+        return crc16.crcValue & 0xFFFF
 
     def cria_header(self, tipo, file_id, seq, total, plen, crc):
         return struct.pack(">BBHHHH",
