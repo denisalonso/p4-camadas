@@ -1,146 +1,80 @@
 import os
 import time as t
 import numpy as np
+import keyboard
 from enlace import *
 from pacote import Pacote
-import keyboard
+from txtgen import escreve
 
 class Client():
     def __init__(self):
-        self.COM = 'COM15' # insira sua porta COM aqui
-
+        self.COM = 'COM15'
+        self.LOG = 'client_log.txt'
 
 def main():
     client = Client()
     p = Pacote()
-
     com = enlace(client.COM)
-    print('#####################################################')
-    print('######       inicializando o --CLIENTE--      #######')
-    print('#####################################################')
-    time.sleep(1)
+
+    print("### inicializando cliente ###")
+    t.sleep(1)
     try:
         com.enable()
-        print(f'porta aberta: {client.COM}')
-        t.sleep(1)
-        
-        # byte de sacrificio
         com.sendData(b'00')
-        t.sleep(1)
+        t.sleep(0.1)
 
-        # hello
-        com.sendData(np.asanyarray(p.cria_pacote(p.T_HELLO)))
-        print('hello enviado')
+        com.sendData(np.asarray(p.cria_pacote(p.T_HELLO)))
+        escreve(client.LOG, "envio", 0, 0, 0, 0)
 
-        # recebe lista (payload = nomes separados por '\n')
-        tip, f, seq, total, payload = p.recebe_pacote(com,timeout=8)
+        tip, f, seq, total, payload = p.recebe_pacote(com, timeout=8)
         if tip != p.T_LIST:
-            raise RuntimeError('esperava a lista de arquivos do servidor')
-        if payload:
-            nomes = payload.decode('utf-8').strip().split('\n')
-        else:
-            nomes = []
-        print('arquivos disponíveis: ')
-        
-        for nome in nomes:
-            print(f"{nome}: {nomes.index(nome)}")
+            raise RuntimeError("esperava lista")
+        escreve(client.LOG, "receb", len(payload), 0, 1, p.calcula_crc16(payload))
 
-        t.sleep(1)
+        nomes = payload.decode().strip().split('\n')
+        print("arquivos disponíveis:")
+        for i, nome in enumerate(nomes):
+            print(i, nome)
 
-        escolhas = []
-        while True:
-            arq = input('digite o indice do arquivo que voce quer (digite "q" pra sair): ')
-            if arq == 'q':
-                break
-            else:
-                try:
-                    escolhas.append(nomes[int(arq)])
-                except:
-                    print('indice nao consta na lista de arquivos!')
-
-        # escolhe 2 (ou menos se só houver 1)
-        # escolhas = nomes[] if len(nomes) >= 2 else nomes
-        if not escolhas:
-            raise RuntimeError("Servidor não forneceu arquivos")
-    
-        # envia get para cada escolha
-        file_state = {}  # f -> {nome, dados(bytearray), total:int|None, esperado:int}
+        escolhas = [nomes[0]] if nomes else []
+        file_state = {}
         for i, nome in enumerate(escolhas, start=1):
-            com.sendData(np.asarray(p.cria_pacote(p.T_GET, file_id=i, payload=nome.encode("utf-8"))))
-            print(f"get: f={i} nome='{nome}'")
-            # espera OK correspondente
+            get_pkg = p.cria_pacote(p.T_GET, file_id=i, payload=nome.encode())
+            com.sendData(np.asarray(get_pkg))
+            escreve(client.LOG, "envio", len(nome), 0, 1, p.calcula_crc16(nome.encode()))
             t2, f2, _, _, _ = p.recebe_pacote(com, timeout=5)
-            if t2 != p.T_OK or f2 != i:
-                raise RuntimeError("esperava ok do get mas veio outro tipo")
+            if t2 != p.T_OK:
+                raise RuntimeError("esperava OK")
             file_state[i] = {"nome": nome, "dados": bytearray(), "total": None, "esperado": 0}
-        t.sleep(1)
-        print("iniciando recepção intercalada (ACK por pacote)...")
+
         concluido = set()
-
-        pausado = False
-        abortado = False
         while len(concluido) < len(file_state):
-            
-            if keyboard.is_pressed('p'):
-                pausado = not pausado
-                print('pausado' if pausado else 'retomando')
-                t.sleep(0.5)
-            
-            if keyboard.is_pressed('x'):
-                abortado = True
-                print('transferencia abortada!')
-                com.sendData(np.asarray(p.cria_pacote(p.T_ABORT)))
-                break
-
-            if not pausado:
-                try:
-                    tip, f, s, tot, pl = p.recebe_pacote(com, timeout=15)
-                except TimeoutError:
-                    print("timeout esperando")
-                    continue
-
-                if tip == p.T_DATA:
-                    info = file_state.get(f)
-                    if not info or f in concluido:
-                        # ACK do último válido para evitar travar do outro lado
-                        last_ok = (info["esperado"] - 1) if info else 0
-                        com.sendData(np.asarray(p.cria_pacote(p.T_ACK, file_id=f, seq=max(0, last_ok))))
-                        continue
-
-                    if info["total"] is None and tot != 0:
-                        info["total"] = tot
-
-                    if s == info["esperado"]:
-                        info["dados"].extend(pl)
-                        info["esperado"] += 1
-                        com.sendData(np.asarray(p.cria_pacote(p.T_ACK, file_id=f, seq=s)))
-                        if info["total"] is not None:
-                            print(f"{info['nome']}  {s+1}/{info['total']}")
-                    else:
-                        # re-ACK do último correto para acionar retransmissão
-                        com.sendData(np.asarray(p.cria_pacote(p.T_ACK, file_id=f, seq=max(0, info["esperado"]-1))))
-
-                    # terminou esse arquivo?
-                    if info["total"] is not None and info["esperado"] >= info["total"]:
-                        out = f"recv_{f}_{os.path.basename(info['nome'])}"
-                        with open(out, "wb") as fp:
-                            fp.write(bytes(info["dados"]))
-                        print(f"[CLI] Salvo: {out}  ({len(info['dados'])} bytes)")
-                        com.sendData(np.asarray(p.cria_pacote(p.T_END, file_id=f)))
-                        concluido.add(f)
-
-                elif tip == p.T_END:
-                    # opcional: ACK final
-                    com.sendData(np.asarray(p.cria_pacote(p.T_ACK, file_id=f, seq=0)))
+            tip, f, s, tot, pl = p.recebe_pacote(com, timeout=15)
+            if tip == p.T_DATA:
+                escreve(client.LOG, "receb", len(pl), s, tot, p.calcula_crc16(pl))
+                info = file_state[f]
+                if s == info["esperado"]:
+                    info["dados"].extend(pl)
+                    info["esperado"] += 1
+                    com.sendData(np.asarray(p.cria_pacote(p.T_ACK, file_id=f, seq=s)))
+                    escreve(client.LOG, "envio", 0, s, tot, 0)
                 else:
-                    # ignora outros tipos aqui
-                    pass
-        if not abortado:
-            print("todos os arquivos recebidos com sucesso!")
+                    # retransmissão
+                    com.sendData(np.asarray(p.cria_pacote(p.T_ACK, file_id=f, seq=info["esperado"]-1)))
+            elif tip == p.T_END:
+                out = f"recv_{f}_{os.path.basename(file_state[f]['nome'])}"
+                with open(out, "wb") as fp:
+                    fp.write(bytes(file_state[f]["dados"]))
+                concluido.add(f)
+            elif tip == p.T_ERRCRC:
+                # pede reenvio
+                com.sendData(np.asarray(p.cria_pacote(p.T_ACK, file_id=f, seq=file_state[f]["esperado"]-1)))
+
+        print("todos os arquivos recebidos!")
 
     finally:
         com.disable()
-        print('fim do projeto')
+        print("fim cliente")
 
 if __name__ == '__main__':
     main()
