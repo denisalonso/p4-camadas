@@ -1,7 +1,7 @@
 import struct
 import time as t
 from enlace import *
-import crc16
+import crcmod
 
 class Pacote(object):
     def __init__(self):
@@ -21,7 +21,7 @@ class Pacote(object):
         self.T_ERRCRC = 9   # novo tipo de mensagem para CRC errado
 
     def calcula_crc16(self, payload):
-        return crc16.crc16xmodem(payload) & 0xFFFF
+        return crcmod.crc16xmodem(payload) & 0xFFFF
 
     def cria_header(self, tipo, file_id, seq, total, plen, crc):
         return struct.pack(">BBHHHH",
