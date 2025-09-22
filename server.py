@@ -24,21 +24,51 @@ def main():
         recebidos = {}
         total = None
 
+        # while True:
+        #     seq, total, plen, crc, payload = p.recebe_pacote(com, timeout=15)
+
+        #     escreve("server_log.txt", "receb", plen, seq, total, crc)
+
+        #     if p.calcula_crc16(payload) != crc:
+        #         print(f"[SRV] Erro CRC no pacote {seq}, enviando NAK")
+        #         com.sendData(b"\x00")
+        #         escreve("server_log.txt", "envio", 0, seq, total, 0)
+        #         continue
+
+        #     recebidos[seq] = payload
+        #     com.sendData(b"\x01")
+        #     escreve("server_log.txt", "envio", 0, seq, total, crc)
+        #     print(f"[SRV] Pacote {seq+1}/{total} recebido OK")
+
+        #     if len(recebidos) == total:
+        #         break
+        esperado = 0
+        recebidos = {}
+        total = None
+
         while True:
             seq, total, plen, crc, payload = p.recebe_pacote(com, timeout=15)
-
             escreve("server_log.txt", "receb", plen, seq, total, crc)
 
             if p.calcula_crc16(payload) != crc:
                 print(f"[SRV] Erro CRC no pacote {seq}, enviando NAK")
-                com.sendData(b"\x00")
+                com.sendData(b"\x00")   # NAK
                 escreve("server_log.txt", "envio", 0, seq, total, 0)
                 continue
 
+            if seq != esperado:
+                print(f"[SRV] Fora de ordem! Esperava {esperado}, recebi {seq}. Mandando NAK.")
+                com.sendData(b"\x00")   # NAK
+                escreve("server_log.txt", "envio", 0, seq, total, 0)
+                continue
+
+            # Se chegou aqui: pacote certo
             recebidos[seq] = payload
-            com.sendData(b"\x01")
+            com.sendData(b"\x01")  # ACK
             escreve("server_log.txt", "envio", 0, seq, total, crc)
             print(f"[SRV] Pacote {seq+1}/{total} recebido OK")
+
+            esperado += 1
 
             if len(recebidos) == total:
                 break
