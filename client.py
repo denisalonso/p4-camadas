@@ -1,4 +1,59 @@
-# client.py
+# # client.py
+# import os
+# import time
+# import numpy as np
+# from enlace import enlace
+# from pacote import Pacote
+# from txtgen import escreve
+
+# SERIAL_CLIENT = "COM7"
+# ARQUIVO = "maior.png"
+
+# def main():
+#     com = enlace(SERIAL_CLIENT)
+#     p = Pacote()
+#     try:
+#         com.enable()
+#         print(f"[CLI] Porta aberta: {SERIAL_CLIENT}")
+
+#         # Byte de sacrifício
+#         com.sendData(b"00")
+#         time.sleep(0.2)
+
+#         with open(ARQUIVO, "rb") as f:
+#             data = f.read()
+
+#         total = (len(data) + p.MAX_PAY - 1) // p.MAX_PAY
+
+#         i = 0
+#         while i < total:
+#             start = i * p.MAX_PAY
+#             end = start + p.MAX_PAY
+#             payload = data[start:end]
+#             pacote = p.cria_pacote(i, total, payload)
+#             crc = p.calcula_crc16(payload)
+
+#             com.sendData(np.asarray(pacote))
+#             escreve("client_log.txt", "envio", len(payload), i, total, crc)
+#             print(f"[CLI] Pacote {i+1}/{total} enviado")
+
+#             rx, _ = com.getData(1)
+#             if rx == b"\x01":
+#                 print(f"[CLI] ACK recebido ({i+1}/{total})")
+#                 escreve("client_log.txt", "receb", 0, i, total, crc)
+#                 i += 1
+#             else:
+#                 print(f"[CLI] NAK recebido, reenviando {i+1}")
+#                 escreve("client_log.txt", "receb", 0, i, total, crc)
+
+#         print("[CLI] Transmissão concluída!")
+
+#     finally:
+#         com.disable()
+#         print("[CLI] fim")
+
+# if __name__ == "__main__":
+#     main()
 import os
 import time
 import numpy as np
@@ -7,7 +62,7 @@ from pacote import Pacote
 from txtgen import escreve
 
 SERIAL_CLIENT = "COM7"
-ARQUIVO = "image.png"
+ARQUIVO = "maior.png"
 
 def main():
     com = enlace(SERIAL_CLIENT)
@@ -33,18 +88,29 @@ def main():
             pacote = p.cria_pacote(i, total, payload)
             crc = p.calcula_crc16(payload)
 
+            print(f"[CLI] Enviando pacote {i+1}/{total}")
             com.sendData(np.asarray(pacote))
             escreve("client_log.txt", "envio", len(payload), i, total, crc)
-            print(f"[CLI] Pacote {i+1}/{total} enviado")
 
-            rx, _ = com.getData(1)
-            if rx == b"\x01":
+            # Aguarda ACK com timeout
+            ack_ok = False
+            t0 = time.time()
+            while time.time() - t0 < 2.0:  # timeout = 2s
+                if com.rx.getBufferLen() > 0:
+                    rx, _ = com.getData(1)
+                    if rx == b"\x01":
+                        ack_ok = True
+                        break
+                    elif rx == b"\x00":
+                        print(f"[CLI] NAK recebido, reenviando pacote {i+1}")
+                        break
+
+            if ack_ok:
                 print(f"[CLI] ACK recebido ({i+1}/{total})")
                 escreve("client_log.txt", "receb", 0, i, total, crc)
                 i += 1
             else:
-                print(f"[CLI] NAK recebido, reenviando {i+1}")
-                escreve("client_log.txt", "receb", 0, i, total, crc)
+                print(f"[CLI] Timeout/NAK no pacote {i+1}, reenviando...")
 
         print("[CLI] Transmissão concluída!")
 

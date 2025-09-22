@@ -94,7 +94,7 @@ from enlace import enlace
 from pacote import Pacote
 from txtgen import escreve
 
-SERIAL_SERVER = "COM14"          # <-- use a porta do Arduino do SERVER
+SERIAL_SERVER = "COM14"
 ARQUIVO_SAIDA = "saida.png"
 
 def main():
@@ -120,20 +120,22 @@ def main():
             # Verifica CRC
             if p.calcula_crc16(payload) != crc:
                 print(f"[SRV] Erro CRC no pacote {seq}, enviando NAK")
-                com.sendData(b"\x00")   # NAK
+                com.sendData(b"\x00")
                 escreve("server_log.txt", "envio", 0, seq, total, 0)
                 continue
 
             # Verifica ordem
             if seq != esperado:
-                print(f"[SRV] Fora de ordem! Esperava {esperado}, recebi {seq}. Mandando NAK.")
-                com.sendData(b"\x00")   # NAK
-                escreve("server_log.txt", "envio", 0, seq, total, 0)
+                print(f"[SRV] Fora de ordem! Esperava {esperado}, recebi {seq}. Reenviando ACK do último válido.")
+                # ACK do último válido (esperado-1)
+                ultimo_valido = max(0, esperado-1)
+                com.sendData(b"\x01")
+                escreve("server_log.txt", "envio", 0, ultimo_valido, total, 0)
                 continue
 
             # Pacote correto
             recebidos[seq] = payload
-            com.sendData(b"\x01")      # ACK
+            com.sendData(b"\x01")
             escreve("server_log.txt", "envio", 0, seq, total, crc)
             print(f"[SRV] Pacote {seq+1}/{total} recebido OK")
             esperado += 1

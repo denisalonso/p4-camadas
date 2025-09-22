@@ -6,7 +6,7 @@ from pacote import Pacote
 from txtgen import escreve
 
 SERIAL_CLIENT = "COM7"      # <-- use a porta do Arduino do CLIENTE
-ARQUIVO = "image.png"
+ARQUIVO = "maior.png"
 
 def main():
     com = enlace(SERIAL_CLIENT)
@@ -31,9 +31,10 @@ def main():
         while i < total:
             # decide qual seq vai enviar agora
             seq_to_send = i
-            if (i == 2) and (not erro_injetado) and (i + 1 < total):
-                seq_to_send = i + 1  # pula o 2 e manda o 3
+            if (i == 1) and (not erro_injetado) and (i + 1 < total):
+                seq_to_send = i + 1  # manda o 2 antes do 1
                 erro_injetado = True
+
 
             # monta o pacote conforme seq_to_send (não o i!)
             start = seq_to_send * p.MAX_PAY
