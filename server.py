@@ -6,7 +6,7 @@ from enlace import enlace
 from pacote import Pacote
 from txtgen import escreve
 
-SERIAL_SERVER = "COM8"
+SERIAL_SERVER = "COM14"
 ARQUIVO_SAIDA = "saida.png"
 
 def main():
