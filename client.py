@@ -27,6 +27,8 @@ def main():
 
         i = 0
         while i < total:
+            if i ==5:
+                i=6
             start = i * p.MAX_PAY
             end = start + p.MAX_PAY
             payload = data[start:end]
