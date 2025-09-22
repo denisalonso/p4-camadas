@@ -6,7 +6,7 @@ from enlace import enlace
 from pacote import Pacote
 from txtgen import escreve
 
-SERIAL_SERVER = "COM6"
+SERIAL_SERVER = "COM8"
 ARQUIVO_SAIDA = "saida.png"
 
 def main():
@@ -56,3 +56,66 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+#Traceback (most recent call last):
+#   File "c:\Users\dedal\OneDrive\Área de Trabalho\camadas\p4-camadas\server.py", line 16, in main
+#     com.enable()
+#     ~~~~~~~~~~^^
+#   File "c:\Users\dedal\OneDrive\Área de Trabalho\camadas\p4-camadas\enlace.py", line 29, in enable
+#     self.fisica.open()
+#     ~~~~~~~~~~~~~~~~^^
+#   File "c:\Users\dedal\OneDrive\Área de Trabalho\camadas\p4-camadas\interfaceFisica.py", line 31, in open
+#     self.port = serial.Serial(self.name,
+#                 ~~~~~~~~~~~~~^^^^^^^^^^^
+#                               self.baudrate,
+#                               ^^^^^^^^^^^^^^
+#     ...<2 lines>...
+#                               self.stop,
+#                               ^^^^^^^^^^
+#                               self.timeout)
+#                               ^^^^^^^^^^^^^
+#   File "C:\Users\dedal\AppData\Local\Programs\Python\Python313\Lib\site-packages\serial\serialwin32.py", line 33, in __init__
+#     super(Serial, self).__init__(*args, **kwargs)
+#     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+#   File "C:\Users\dedal\AppData\Local\Programs\Python\Python313\Lib\site-packages\serial\serialutil.py", line 244, in __init__
+#     self.open()
+#     ~~~~~~~~~^^
+#   File "C:\Users\dedal\AppData\Local\Programs\Python\Python313\Lib\site-packages\serial\serialwin32.py", line 64, in open
+#     raise SerialException("could not open port {!r}: {!r}".format(self.portstr, ctypes.WinError()))
+# serial.serialutil.SerialException: could not open port 'COM8': FileNotFoundError(2, 'O sistema não pode encontrar o arquivo especificado.', None, 2)
+
+# During handling of the above exception, another exception occurred:
+
+# Traceback (most recent call last):
+#   File "c:\Users\dedal\OneDrive\Área de Trabalho\camadas\p4-camadas\server.py", line 58, in <module>
+#     main()
+#     ~~~~^^
+#   File "c:\Users\dedal\OneDrive\Área de Trabalho\camadas\p4-camadas\server.py", line 54, in main
+#     com.disable()
+#     ~~~~~~~~~~~^^
+#   File "c:\Users\dedal\OneDrive\Área de Trabalho\camadas\p4-camadas\enlace.py", line 37, in disable
+#     self.fisica.close()
+#     ~~~~~~~~~~~~~~~~~^^
+#   File "c:\Users\dedal\OneDrive\Área de Trabalho\camadas\p4-camadas\interfaceFisica.py", line 40, in close
+#     self.port.close()
+#     ^^^^^^^^^^^^^^^
+# AttributeError: 'NoneType' object has no attribute 'close'
+# PS C:\Users\dedal\OneDrive\Área de Trabalho\camadas\p4-camadas>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
